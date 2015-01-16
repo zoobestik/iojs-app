@@ -9,6 +9,7 @@ RUN echo "$username ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 ADD $deb_iojs_file /tmp/iojs.deb
 RUN sudo dpkg -i /tmp/iojs.deb
 RUN rm /tmp/iojs.deb
+RUN sudo npm install -f npm -g
 
 WORKDIR /home/$username
 USER $username
