@@ -1,0 +1,14 @@
+FROM ubuntu:14.04
+
+MAINTAINER zoobestik <kb.chernenko@gmail.com>
+
+RUN apt-get update && apt-get -y upgrade
+RUN useradd $username
+RUN echo "$username ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+ADD $deb_iojs_file /tmp/iojs.deb
+RUN sudo dpkg -i /tmp/iojs.deb
+RUN rm /tmp/iojs.deb
+
+WORKDIR /home/$username
+USER $username

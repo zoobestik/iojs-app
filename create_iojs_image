@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+from plumbum import cli
+from plumbum.cmd import wget, rm
+
+from os.path import isfile
+from tempfile import mkdtemp
+
+from docker import Client
+from string import Template
+
+from io import BytesIO
+import json, re
+
+def print_docker_line(text):
+    print re.sub(r'[\r\n]+$', "", text)
+
+class CreateIoJsImage(cli.Application):
+    PROGNAME = "create_iojs_image"
+    VERSION = "0.1"
+
+    _docker = None
+    _tempdir = None
+    _is_cleandir = True
+
+    iojs_ver = cli.SwitchAttr([ "-i", "--iojs_ver" ], str, default = "1.0.1", help = "Version of io.js into container")
+    username = cli.SwitchAttr([ "-u", "--username" ], str, default = "docker", help = "Username for default user into container")
+    verbose = cli.Flag("--verbose", default = False, help = "See docker build log")
+    docker_url = cli.SwitchAttr("--docker", str, default = "unix://var/run/docker.sock", help = "Path to docker API")
+    tmp_dir = cli.SwitchAttr("--directory", str, default = None, help = "Set path to script working directory; this option keep generated files")
+
+    def main(self, image_name="zoobestik/iojs-app"):
+        deb_filename = self.deb_iojs_download()
+        
+        self.generate_dockerfile(deb_filename)
+
+        docker = self.get_docker()
+        response = []
+
+        for line in docker.build(path=self.get_temp_dir(), rm=True, tag=image_name):
+            if self.verbose:
+                text = json.loads(line)
+                if text.has_key("stream"):
+                    print_docker_line(text.get("stream"))
+                elif text.has_key("errorDetail"):
+                    print_docker_line(text.get("errorDetail").get("message"))
+
+    def get_docker(self):
+        if self._docker is None:
+            self._docker = Client(base_url=self.docker_url)
+        return self._docker
+
+    def get_temp_dir(self):
+        if self._tempdir is None:
+            self._tempdir = self.tmp_dir if self.tmp_dir is not None else mkdtemp()
+        return self._tempdir
+
+    def generate_dockerfile(self, deb_filename):
+        filein = open("dockerfile.template", "r")
+        src = Template(filein.read())
+        filein.close()
+
+        filename = "%s/Dockerfile" % self.get_temp_dir()
+
+        fileout = open(filename, "w")
+        fileout.write(src.substitute({ "username": self.username, "deb_iojs_file": deb_filename }))
+        fileout.close()
+
+        return self
+
+    def deb_iojs_download(self):
+        filename = "iojs_%s-1_amd64.deb" % self.iojs_ver
+        filepath = "%s/%s" % (self.get_temp_dir(), filename)
+
+        if not isfile(filepath):
+            get = wget["-O", filepath]["https://github.com/zoobestik/docker-iojs-ubuntu-build/raw/master/export/%s" % filename]
+            get()
+        return filename
+
+    def __del__(self):
+        if self.tmp_dir is None:
+            cmd = rm["-rf"][self.get_temp_dir()]
+            cmd()
+
+if __name__ == "__main__":
+    CreateIoJsImage.run()
+
