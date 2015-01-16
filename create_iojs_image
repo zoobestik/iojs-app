@@ -28,6 +28,7 @@ class CreateIoJsImage(cli.Application):
     verbose = cli.Flag("--verbose", default = False, help = "See docker build log")
     docker_url = cli.SwitchAttr("--docker", str, default = "unix://var/run/docker.sock", help = "Path to docker API")
     tmp_dir = cli.SwitchAttr("--directory", str, default = None, help = "Set path to script working directory; this option keep generated files")
+    template_path = cli.SwitchAttr([ "-t", "--template" ], str, default = "dockerfile.template", help = "Path to template file")
 
     def main(self, image_name="zoobestik/iojs-app"):
         deb_filename = self.deb_iojs_download()
@@ -56,7 +57,7 @@ class CreateIoJsImage(cli.Application):
         return self._tempdir
 
     def generate_dockerfile(self, deb_filename):
-        filein = open("dockerfile.template", "r")
+        filein = open(self.template_path, "r")
         src = Template(filein.read())
         filein.close()
 
