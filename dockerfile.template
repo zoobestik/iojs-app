@@ -11,5 +11,9 @@ RUN sudo dpkg -i /tmp/iojs.deb
 RUN rm /tmp/iojs.deb
 RUN sudo npm install -f npm -g
 
-WORKDIR /home/$username
+RUN sudo mkdir -p /apps
+RUN sudo chown -R $username:$username /apps
+
 USER $username
+
+ENTRYPOINT ["npm", "run-script", "watch"]

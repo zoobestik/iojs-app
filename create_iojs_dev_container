@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+
+from plumbum import cli
+from docker import Client
+from os.path import abspath
+
+class CreateIoJsContainer(cli.Application):
+    PROGNAME = "create_iojs_dev_container"
+    VERSION = "0.1"
+
+    _docker = None
+
+    docker_url = cli.SwitchAttr("--docker", str, default = "unix://var/run/docker.sock", help = "Path to docker API")
+    image_name = cli.SwitchAttr("--image", str, default = "zoobestik/iojs-app", help = "Path to docker API")
+
+    def main(self, app_name, source_path):
+        docker = self.get_docker()
+        container = docker.create_container(image=self.image_name, name="iojs-app-%s" % app_name, working_dir="/apps/web", ports=[8888])
+        print container.get('Id')
+        docker.start(container.get('Id'), restart_policy={ "MaximumRetryCount": 5, "Name": "always" }, binds={ abspath(source_path): { 'bind': "/apps/web", 'ro': False } }, port_bindings={ 8888: 8080 })
+
+    def get_docker(self):
+        if self._docker is None:
+            self._docker = Client(base_url=self.docker_url)
+        return self._docker
+
+if __name__ == "__main__":
+    CreateIoJsContainer.run()
+ 
